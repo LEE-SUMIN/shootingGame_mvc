@@ -67,12 +67,12 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 start.setVisibility(View.GONE);
-                //게임 세팅
+                //가상 좌표 세팅
                 float displayRatio = realDisplayHeight / realDisplayWidth;
                 game.setVirtualDisplay(displayRatio);
-
+                //게임 시작 상태 전환
                 game.setGameStart(lifeLimit, bulletLimit);
-
+                //게임 진행
                 TimerTask stepTimerTask = genStepTimerTask();
                 timer.schedule(stepTimerTask, 0, 10);
             }

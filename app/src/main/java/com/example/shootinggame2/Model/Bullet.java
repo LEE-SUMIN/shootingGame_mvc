@@ -9,8 +9,8 @@ public class Bullet extends Item {
     public Bullet(int id, int angle) {
         super(id);
         this.angle = angle;
-        this.x = 50 - (width / 2);
-        this.y = 100 - height;
+        this.x = (Game.virtualWidth / 2) - (width / 2);
+        this.y = Game.virtualHeight - height;
         this.dx = angle > 90 ? -1 : 1;
         this.dy = (float) (-Math.tan(Math.toRadians(angle)) * dx);
         this.reflection = 0;
@@ -18,7 +18,7 @@ public class Bullet extends Item {
 
     @Override
     public void move() {
-        if(x == 100 - width || x == 0) { //벽에 부딪히면
+        if(x == Game.virtualWidth - width || x == 0) { //벽에 부딪히면
             dx = -dx;
             reflection++;
         }

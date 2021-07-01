@@ -1,7 +1,5 @@
 package com.example.shootinggame2.Model;
 
-import com.example.shootinggame2.MyDisplay;
-
 import java.util.HashMap;
 
 public class Game {
@@ -9,8 +7,11 @@ public class Game {
     // Constant definitions.
     //
 
-    public static final int virtual_width = 100;
-    public static final int virtual_height = virtual_width * (MyDisplay.height / MyDisplay.width);
+    public static float virtualWidth;
+    public static float virtualHeight;
+
+    public static int maxEnemyId = 30;
+    public static int maxBulletId = 10;
 
     //----------------------------------------------------------------------------
     // class variables.
@@ -24,6 +25,9 @@ public class Game {
     private HashMap<Integer, Bullet> bulletHashMap;
     private HashMap<Integer, Enemy> enemyHashMap;
     private boolean running = false;
+
+    private int step;
+    private int enemyGenStep;
 
     private int life;
     private int bulletLimit;
@@ -56,12 +60,17 @@ public class Game {
     // Public interface.
     //
 
+    public void setVirtualDisplay(float displayRatio) {
+        this.virtualWidth = 100f;
+        this.virtualHeight = virtualWidth * displayRatio;
+    }
+
     /**
      * 게임 시작시 호출 -> 초기화
      * @param lifeLimit
      * @param bulletLimit
      */
-    public void start(int lifeLimit, int bulletLimit) {
+    public void setGameStart(int lifeLimit, int bulletLimit) {
         this.running = true;
         this.life = lifeLimit;
         this.bulletLimit = bulletLimit;
@@ -69,12 +78,20 @@ public class Game {
         this.enemyId = 0;
         this.bulletHashMap = new HashMap<>();
         this.enemyHashMap = new HashMap<>();
+        this.step = 0;
+        this.enemyGenStep = 0;
     }
 
     /**
      * TimerTask 내에서 호출되며 화면 상에 존재하는 bullet과 enemy 위치 조정
      */
     public void update() {
+        if(step == enemyGenStep) {
+            addEnemy();
+            enemyGenStep = (int)(Math.random() * 300 + 50) + step;
+        }
+        step++;
+
         //bullet 위치 이동
         updateBulletsPosition();
         //enemy 위치 이동
@@ -123,6 +140,15 @@ public class Game {
         enemyHashMap.put(id, enemy);
     }
 
+    /**
+     *
+     * @return
+     */
+    public boolean isRunning() {
+        return running;
+    }
+
+
     //----------------------------------------------------------------------
     // Internal support methods.
     //
@@ -131,7 +157,7 @@ public class Game {
      * Bullet 위치 이동 (단위 벡터 만큼 이동)
      */
     private void updateBulletsPosition() {
-        for(int i = 0; i < 10; i++) {
+        for(int i = 0; i < maxBulletId; i++) {
             if(bulletHashMap.containsKey(i)) {
                 Bullet b = bulletHashMap.get(i);
                 b.move();
@@ -146,11 +172,11 @@ public class Game {
      * Enemy 위치 이동 (단위 벡터 만큼 이동)
      */
     private void updateEnemiesPosition() {
-        for(int i = 0; i < 30; i++) {
+        for(int i = 0; i < maxEnemyId; i++) {
             if(enemyHashMap.containsKey(i)) {
                 Enemy e = enemyHashMap.get(i);
                 e.move();
-                if(e.getY() > virtual_height) { //enemy가 땅에 닿으면
+                if(e.getY() > virtualHeight) { //enemy가 땅에 닿으면
                     enemyHashMap.remove(i);
                     decreaseLife();
                 }
@@ -162,7 +188,7 @@ public class Game {
      * 충돌 감지
      */
     private void checkConflict() {
-        for(int eid = 0; eid < 30; eid++) {
+        for(int eid = 0; eid < maxEnemyId; eid++) {
             if(enemyHashMap.containsKey(eid)) {
                 Enemy e = enemyHashMap.get(eid);
                 float ex = e.getX();
@@ -183,7 +209,7 @@ public class Game {
      * @return
      */
     private int findConflictingBullet(float ex, float ey) {
-        for(int bid = 0; bid < 10; bid++) {
+        for(int bid = 0; bid < maxBulletId; bid++) {
             if(bulletHashMap.containsKey(bid)) {
                 Bullet b = bulletHashMap.get(bid);
                 if(!b.bounced()) continue;
@@ -243,8 +269,6 @@ public class Game {
         }
     }
 
-    private boolean isRunning() {
-        return running;
-    }
+
 
 }

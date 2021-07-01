@@ -2,10 +2,10 @@ package com.example.shootinggame2;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import android.content.Intent;
-import android.graphics.Color;
+import android.graphics.Point;
+import android.media.Image;
 import android.os.Bundle;
-import android.util.Log;
+import android.view.Display;
 import android.view.View;
 import android.widget.Button;
 import android.widget.FrameLayout;
@@ -17,6 +17,7 @@ import com.example.shootinggame2.Model.Bullet;
 import com.example.shootinggame2.Model.Enemy;
 import com.example.shootinggame2.Model.Game;
 
+import java.util.HashMap;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -31,27 +32,33 @@ public class MainActivity extends AppCompatActivity {
     private Button btnShoot;
     private ImageView spaceship;
     private FrameLayout skyLayout;
+    private int realDisplayHeight;
+    private int realDisplayWidth;
 
     private Game game;
 
     // Game
-    private Timer timer;
+    private int lifeLimit = 3;
+    private int bulletLimit = 5;
 
-    //
-    private int step = 0;
-    private int nextEnemyStep = 0;
+    private Timer timer;
+    private ImageView[] lifeViews;
+    private HashMap<Integer, ImageView> enemyViews;
+    private HashMap<Integer, ImageView> bulletViews;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        setUpUI();
-
-        MyDisplay.setup(getWindowManager().getDefaultDisplay());
-
         timer = new Timer();
         game = Game.getInstance();
+
+        //UI 세팅
+        setUpUI();
+        //실제 화면 크기 변수 세팅
+        setDisplayVariables();
 
         /**
          * start 버튼 클릭 -> 게임 시작
@@ -59,10 +66,14 @@ public class MainActivity extends AppCompatActivity {
         start.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                start.setVisibility(View.GONE);
                 //게임 세팅
-                game.start(3, 5);
+                float displayRatio = realDisplayHeight / realDisplayWidth;
+                game.setVirtualDisplay(displayRatio);
 
-                TimerTask stepTimerTask = getStepTimerTask();
+                game.setGameStart(lifeLimit, bulletLimit);
+
+                TimerTask stepTimerTask = genStepTimerTask();
                 timer.schedule(stepTimerTask, 0, 10);
             }
         });
@@ -98,6 +109,20 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     *
+     */
+    private void setDisplayVariables() {
+        Display display = getWindowManager().getDefaultDisplay();
+        Point size = new Point();
+        display.getRealSize(size);
+        realDisplayWidth = size.x;
+        realDisplayHeight = (int) (size.y * 0.8);
+    }
+
+    /**
+     *
+     */
     private void setUpUI() {
         infoLayout = (LinearLayout) findViewById(R.id.info);
         start = (Button) findViewById(R.id.start);
@@ -105,37 +130,75 @@ public class MainActivity extends AppCompatActivity {
         seekBar = (SeekBar) findViewById(R.id.seekBar);
         btnShoot = (Button) findViewById(R.id.btnShoot);
         skyLayout = (FrameLayout) findViewById(R.id.sky_layout);
+
+        setUpLifeViews();
+        enemyViews = new HashMap<>();
+        bulletViews = new HashMap<>();
+
+    }
+
+    private void setUpLifeViews() {
+        lifeViews = new ImageView[lifeLimit];
+        for(int i = 0; i < lifeLimit; i++) {
+            lifeViews[i] = addLifeImageView();
+        }
     }
 
     /**
-     * 10ms 마다 호출되는 TimerTask
+     * 각종 ImageView 생성
+     */
+    private ImageView addLifeImageView() {
+        int virtualLifeSize = 7;
+        int lifeWidth = (int) (realDisplayWidth / Game.virtualWidth * virtualLifeSize);
+        int lifeHeight = (int) (realDisplayHeight / Game.virtualHeight * virtualLifeSize);
+        ImageView lifeImage = new ImageView(getApplicationContext());
+        lifeImage.setImageResource(R.drawable.heart);
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(lifeWidth, lifeHeight);
+        lifeImage.setPadding(realDisplayWidth / 100, realDisplayWidth / 100, realDisplayWidth / 100, realDisplayWidth / 100);
+        infoLayout.addView(lifeImage, params);
+        return lifeImage;
+    }
+
+    private ImageView addBulletImageView() {
+        int bulletWidth = (int) (realDisplayWidth / Game.virtualWidth * Bullet.width);
+        int bulletHeight = (int) (realDisplayHeight / Game.virtualHeight * Bullet.height);
+        ImageView bulletImage = new ImageView(getApplicationContext());
+        bulletImage.setImageResource(R.drawable.bullet);
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(bulletWidth, bulletHeight);
+        skyLayout.addView(bulletImage, params);
+        return bulletImage;
+    }
+
+    private ImageView addEnemyImageView() {
+        int enemyWidth = (int) (realDisplayWidth / Game.virtualWidth * Enemy.width);
+        int enemyHeight = (int) (realDisplayHeight / Game.virtualHeight * Enemy.height);
+        ImageView enemyImage = new ImageView(getApplicationContext());
+        enemyImage.setImageResource(R.drawable.monster);
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(enemyWidth, enemyHeight);
+        skyLayout.addView(enemyImage, params);
+        return enemyImage;
+    }
+
+    /**
+     * 특정 시간 마다 호출되는 TimerTask 생성
      * @return
      */
-    private TimerTask getStepTimerTask() {
+    private TimerTask genStepTimerTask() {
         TimerTask stepTimerTask = new TimerTask() {
             @Override
             public void run() {
-                //(1) 화면 초기화
-                clearViews();
 
                 //(2) game update : bullet, enemy 위치 업데이트
                 game.update();
 
-                //(3) enemy 생성 여부 결정
-                if(step == nextEnemyStep) {
-                    game.addEnemy();
-                    nextEnemyStep = (int)(Math.random() * 300 + 50) + nextEnemyStep; //랜덤한 간격으로 호출하기 위함
-                }
-
-                //(4) bullet, enemy view update
+                //(3) bullet, enemy view update
                 updateViews();
 
-                //(5) 게임 종료 조건 확인
-                if(checkEndCondition()) {
-                    this.cancel();
+                //(4) 게임 종료 조건 확인
+                if(!game.isRunning()) {
+                    timer.cancel();
                     readyForRestart();
                 }
-                step++;
             }
         };
         return stepTimerTask;
@@ -171,72 +234,57 @@ public class MainActivity extends AppCompatActivity {
 
     private void updateLifeImageView() {
         int life = game.getLife();
-        for(int i = 0; i < life; i++) {
-            addLifeImageView();
+        for(int i = 0; i < lifeLimit; i++) {
+            if(i < life) {
+                lifeViews[i].setVisibility(View.VISIBLE);
+            }
+            else {
+                lifeViews[i].setVisibility(View.GONE);
+            }
         }
     }
 
     private void updateBulletPosition() {
-        for(int i = 0; i < 10; i++) {
+        for(int i = 0; i < Game.maxBulletId; i++) {
             Bullet b = game.getBullet(i);
             if(b != null) {
-                ImageView bulletImageView = addBulletImageView();
-                bulletImageView.setX(positionXtoViewPosition(b.getX()));
-                bulletImageView.setY(positionYtoViewPosition(b.getY()));
+                if(!bulletViews.containsKey(i)) {
+                    bulletViews.put(i, addBulletImageView());
+                }
+                ImageView bulletImage = bulletViews.get(i);
+                bulletImage.setX(positionXtoViewPosition(b.getX()));
+                bulletImage.setY(positionYtoViewPosition(b.getY()));
+            }
+            else {
+                if(bulletViews.containsKey(i)) {
+                    bulletViews.get(i).setVisibility(View.GONE);
+                    bulletViews.remove(i);
+                }
             }
         }
     }
 
     private void updateEnemyPosition() {
-        for(int i = 0; i < 30; i++) {
+        for(int i = 0; i < Game.maxEnemyId; i++) {
             Enemy e = game.getEnemy(i);
             if(e != null) {
-                ImageView enemyImageView = addEnemyImageView();
-                enemyImageView.setX(positionXtoViewPosition(e.getX()));
-                enemyImageView.setY(positionYtoViewPosition(e.getY()));
+                if(!enemyViews.containsKey(i)) {
+                    enemyViews.put(i, addEnemyImageView());
+                }
+                ImageView enemyImage = enemyViews.get(i);
+                enemyImage.setX(positionXtoViewPosition(e.getX()));
+                enemyImage.setY(positionYtoViewPosition(e.getY()));
+            }
+            else {
+                if(enemyViews.containsKey(i)) {
+                    enemyViews.get(i).setVisibility(View.GONE);
+                    enemyViews.remove(i);
+                }
             }
         }
     }
 
-    /**
-     * 각종 ImageView 생성
-     */
-    private void addLifeImageView() {
-        ImageView heart = new ImageView(getApplicationContext());
-        heart.setImageResource(R.drawable.heart);
-        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(MyDisplay.width / 100 * 7, MyDisplay.width / 100 * 7);
-        heart.setPadding(MyDisplay.width / 100, MyDisplay.width / 100, MyDisplay.width / 100, MyDisplay.width / 100);
-        infoLayout.addView(heart, params);
-    }
 
-    private ImageView addBulletImageView() {
-        ImageView bulletImage = new ImageView(getApplicationContext());
-        bulletImage.setImageResource(R.drawable.bullet);
-        FrameLayout.LayoutParams param = new FrameLayout.LayoutParams(MyDisplay.width / 100 * Bullet.width, MyDisplay.width / 100 * Bullet.width);
-        skyLayout.addView(bulletImage, param);
-        return bulletImage;
-    }
-
-    private ImageView addEnemyImageView() {
-        ImageView enemyImage = new ImageView(getApplicationContext());
-        enemyImage.setImageResource(R.drawable.monster);
-        FrameLayout.LayoutParams param = new FrameLayout.LayoutParams(MyDisplay.width / 100 * Enemy.width, MyDisplay.width / 100 * Enemy.width);
-
-        skyLayout.addView(enemyImage, param);
-        return enemyImage;
-    }
-
-    /**
-     * 종료 조건 확인 : 생명 개수 확인
-     * @return
-     */
-    private boolean checkEndCondition() {
-        int life = game.getLife();
-        if(life <= 0) {
-            return true;
-        }
-        return false;
-    }
 
     /**
      * 가상 X좌표 -> 실제 X좌표로 변환
@@ -244,7 +292,7 @@ public class MainActivity extends AppCompatActivity {
      * @return
      */
     private float positionXtoViewPosition(float beforeX) {
-        float afterX = (MyDisplay.width / 100) * beforeX;
+        float afterX = (realDisplayWidth / 100) * beforeX;
         return afterX;
     }
 
@@ -254,7 +302,7 @@ public class MainActivity extends AppCompatActivity {
      * @return
      */
     private float positionYtoViewPosition(float beforeY) {
-        float afterY = (MyDisplay.height / 100) * beforeY;
+        float afterY = (realDisplayHeight / 100) * beforeY;
         return afterY;
     }
 

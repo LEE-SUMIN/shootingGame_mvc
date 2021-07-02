@@ -10,8 +10,8 @@ public class Game {
     public static float virtualWidth;
     public static float virtualHeight;
 
-    public static int maxEnemyId = 30;
-    public static int maxBulletId = 10;
+    public static int maxEnemyId = 30; // Enemy에 부여될 수 있는 최대 id 개수
+    public static int maxBulletId = 10; // Bullet에 부여될 수 있는 최대 id 개수
 
 
     //----------------------------------------------------------------------------
@@ -97,6 +97,7 @@ public class Game {
         this.enemyGenStep = 0;
     }
 
+
     /**
      * TimerTask 내에서 주기적으로 호출되며 화면 상에 존재하는 bullet과 enemy 위치 조정
      */
@@ -114,7 +115,7 @@ public class Game {
         //enemy 위치 이동
         updateEnemiesPosition();
         //충돌 감지
-        checkConflict();
+        removeConflictingBulletAndEnemy();
     }
 
 
@@ -208,7 +209,7 @@ public class Game {
     /**
      * 충돌 감지
      */
-    private void checkConflict() {
+    private void removeConflictingBulletAndEnemy() {
         for(int eid = 0; eid < maxEnemyId; eid++) {
             if(enemyHashMap.containsKey(eid)) {
                 Enemy e = enemyHashMap.get(eid);

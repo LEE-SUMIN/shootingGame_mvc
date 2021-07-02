@@ -2,16 +2,16 @@ package com.example.shootinggame2.Model;
 
 public abstract class Item {
 
-    protected final int id;
-    protected float dx;
+    protected final int id; //Game에서 관리하기 위해 할당되는 id
+
+    protected float dx; // 이동하는 단위 벡터
     protected float dy;
-    protected float x;
+
+    protected float x; // 위치 좌표
     protected float y;
-    protected boolean alive;
 
     public Item(int id) {
         this.id = id;
-        this.alive = true;
     }
 
     public float getX() {

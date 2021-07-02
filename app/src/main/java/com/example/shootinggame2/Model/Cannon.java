@@ -1,12 +1,18 @@
 package com.example.shootinggame2.Model;
 
 public class Cannon {
-    private static Cannon cannon;
+    //----------------------------------------------------------------------------
+    // Instance variables.
+    //
+
     private int angle;
 
-    private Cannon() {
-        this.angle = 90;
-    }
+
+    //----------------------------------------------------------------------------
+    // Singleton pattern.
+    //
+
+    private static Cannon cannon;
 
     public static Cannon getInstance() {
         if(cannon == null) {
@@ -14,6 +20,20 @@ public class Cannon {
         }
         return cannon;
     }
+
+
+    //----------------------------------------------------------------------------
+    // Constructor.
+    //
+
+    private Cannon() {
+        this.angle = 90;
+    }
+
+
+    //----------------------------------------------------------------------------
+    // Public interface.
+    //
 
     public void setAngle(int angle) {
         this.angle = angle;

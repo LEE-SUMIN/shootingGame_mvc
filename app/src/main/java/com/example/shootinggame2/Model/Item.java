@@ -1,8 +1,5 @@
 package com.example.shootinggame2.Model;
 
-import android.view.View;
-import android.widget.ImageView;
-
 public abstract class Item {
 
     protected final int id;

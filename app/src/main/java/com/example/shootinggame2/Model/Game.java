@@ -13,6 +13,7 @@ public class Game {
     public static int maxEnemyId = 30;
     public static int maxBulletId = 10;
 
+
     //----------------------------------------------------------------------------
     // class variables.
     //
@@ -24,17 +25,20 @@ public class Game {
     private Cannon cannon;
     private HashMap<Integer, Bullet> bulletHashMap;
     private HashMap<Integer, Enemy> enemyHashMap;
-    private boolean running = false;
+    
+    private boolean running = false; // 게임 진행 상태
 
-    private int step;
+    private int step; // 게임 step 관리
     private int enemyGenStep;
 
-    private int life;
-    private int bulletLimit;
+    private int life; // 생명 개수
+    private int bulletLimit; // 화면 상에 존재할 수 있는 bullet 개수
 
-    private int bulletId;
-    private int enemyId;
+    private int bulletId; // bulletId 관리
+    private int enemyId; // enemyId 관리
 
+
+    
     //----------------------------------------------------------------------------
     // Singleton Pattern.
     //
@@ -48,22 +52,31 @@ public class Game {
         return game;
     }
 
+
+
     //----------------------------------------------------------------------------
-    // Life cycle management.
+    // Constructor.
     //
 
     private Game() {
         cannon = Cannon.getInstance();
     };
 
+
+
     //-----------------------------------------------------------------------------
     // Public interface.
     //
 
-    public void setVirtualDisplay(float displayRatio) {
+    /**
+     * 가로 크기 100을 기준으로 실제 화면 비율 대로 가상 좌표계 생성
+     * @param displayRatio
+     */
+    public void setVirtualCoordinates(float displayRatio) {
         this.virtualWidth = 100f;
         this.virtualHeight = virtualWidth * displayRatio;
     }
+    
 
     /**
      * 게임 시작시 호출 -> 초기화
@@ -76,18 +89,22 @@ public class Game {
         this.bulletLimit = bulletLimit;
         this.bulletId = 0;
         this.enemyId = 0;
+
         this.bulletHashMap = new HashMap<>();
         this.enemyHashMap = new HashMap<>();
+
         this.step = 0;
         this.enemyGenStep = 0;
     }
 
     /**
-     * TimerTask 내에서 호출되며 화면 상에 존재하는 bullet과 enemy 위치 조정
+     * TimerTask 내에서 주기적으로 호출되며 화면 상에 존재하는 bullet과 enemy 위치 조정
      */
     public void update() {
+        //enemy를 생성해야 하는 step인지 확인하고, enemy 생성
         if(step == enemyGenStep) {
             addEnemy();
+            //다음 enemy 생성 step 결정
             enemyGenStep = (int)(Math.random() * 300 + 50) + step;
         }
         step++;
@@ -98,6 +115,11 @@ public class Game {
         updateEnemiesPosition();
         //충돌 감지
         checkConflict();
+    }
+
+
+    public int getLife() {
+        return life;
     }
 
     public Cannon getCannon() {
@@ -112,13 +134,6 @@ public class Game {
         return enemyHashMap.get(id);
     }
 
-    /**
-     * 현재 남은 생명 개수 리턴
-     * @return
-     */
-    public int getLife() {
-        return life;
-    }
 
     /**
      * shoot버튼 클릭 시 호출 -> Bullet 추가
@@ -131,8 +146,9 @@ public class Game {
         bulletHashMap.put(id, bullet);
     }
 
+
     /**
-     * 랜덤한 간격으로 timertask에서 호출 -> Enemy 추가
+     * Enemy 추가
      */
     public void addEnemy() {
         int id = genEnemyId();
@@ -140,13 +156,16 @@ public class Game {
         enemyHashMap.put(id, enemy);
     }
 
+
     /**
-     *
+     * 게임이 진행 중인 상태인지 확인
      * @return
      */
     public boolean isRunning() {
         return running;
     }
+
+
 
 
     //----------------------------------------------------------------------
@@ -168,6 +187,7 @@ public class Game {
         }
     }
 
+
     /**
      * Enemy 위치 이동 (단위 벡터 만큼 이동)
      */
@@ -184,6 +204,7 @@ public class Game {
         }
     }
 
+
     /**
      * 충돌 감지
      */
@@ -191,9 +212,7 @@ public class Game {
         for(int eid = 0; eid < maxEnemyId; eid++) {
             if(enemyHashMap.containsKey(eid)) {
                 Enemy e = enemyHashMap.get(eid);
-                float ex = e.getX();
-                float ey = e.getY();
-                int bid = findConflictingBullet(ex, ey);
+                int bid = findConflictingBullet(e);
                 if(bid >= 0) {
                     enemyHashMap.remove(eid);
                     bulletHashMap.remove(bid);
@@ -202,73 +221,91 @@ public class Game {
         }
     }
 
+
     /**
-     * 입력 받은 enemy 좌표와 충돌하는 bullet이 존재하면 리턴
-     * @param ex : enemy의 x좌표
-     * @param ey : enemy의 y좌표
+     * 특정 Enemy와 충돌하는 Bullet의 id 리턴, 없으면 -1
+     * @param e : Enemy
      * @return
      */
-    private int findConflictingBullet(float ex, float ey) {
+    private int findConflictingBullet(Enemy e) {
         for(int bid = 0; bid < maxBulletId; bid++) {
             if(bulletHashMap.containsKey(bid)) {
+
                 Bullet b = bulletHashMap.get(bid);
+
+                //반사가 1회 이상 일어나지 않은 bullet이면 무효 처리
                 if(!b.bounced()) continue;
-                float bx = b.getX();
-                float by = b.getY();
-                if(checkConflict(ex, ey, bx, by)) {
+
+                //bullet과 enemy가 충돌하는지 검사
+                if(checkConflictBetweenEnemyAndBullet(e, b)) {
                     return bid;
                 }
+
             }
         }
         return -1;
     }
 
+
     /**
-     * 해당하는 enemy와 bullet의 좌표가 충돌하는지(중첩되는지) 확인
-     * @param ex : enemy의 x좌표
-     * @param ey : enemy의 y좌표
-     * @param bx : bullet의 x좌표
-     * @param by : bullet의 y좌표
+     * 특정 Enemy와 특정 Bullet이 충돌하는지 검사
+     * @param e : Enemy
+     * @param b : Bullet
      * @return
      */
-    private boolean checkConflict(float ex, float ey, float bx, float by) {
+    private boolean checkConflictBetweenEnemyAndBullet(Enemy e, Bullet b) {
+        float ex = e.getX(); // enemy 좌표
+        float ey = e.getY();
+        float bx = b.getX(); // bullet 좌표
+        float by = b.getY();
+
+        // bullet 면적과 enemy 면적이 겹치는지 확인
         if(bx < ex + Enemy.width && bx + Bullet.width > ex) {
             if(by < ey + Enemy.height && by + Bullet.height > ey) {
                 return true;
             }
         }
+
         return false;
     }
+
 
     /**
      * Bullet id 생성
      * @return
      */
     private int genBulletId() {
+        // 현재 화면 상에 존재하는 bullet이 사용하지 않는 id 찾기
         while(bulletHashMap.containsKey(bulletId)) {
-            bulletId = (bulletId + 1) % 10;
+            bulletId = (bulletId + 1) % maxBulletId;
         }
+        
         return bulletId;
     }
+
 
     /**
      * Enemy id 생성
      * @return
      */
     private int genEnemyId() {
+        // 현재 화면 상에 존재하는 enemy가 사용하지 않는 id 찾기
         while(enemyHashMap.containsKey(enemyId)) {
-            enemyId = (enemyId + 1) % 30;
+            enemyId = (enemyId + 1) % maxEnemyId;
         }
+
         return enemyId;
     }
 
+
+    /**
+     * 생명 1 만큼 감소
+     */
     private void decreaseLife() {
         life--;
+        //생명이 모두 소모되면 게임 종료 상태로 전환
         if(life == 0) {
             running = false;
         }
     }
-
-
-
 }
